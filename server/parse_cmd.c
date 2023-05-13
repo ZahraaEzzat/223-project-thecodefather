@@ -36,8 +36,7 @@ void parse_cmd(int clientfd, char *cmd)
 	else if (strcmp(cmdn, "exit") == 0)
 		_exitt(clientfd);
 
-	else if ((strcmp(cmdn , "cat") == 0) || (strcmp(arg , "ls")) == 0 || (strcmp(arg , "ret")) == 0) 
-	{
+	else if ((strcmp(cmdn , "cat") == 0) || (strcmp(arg , "ls")) == 0 || (strcmp(arg , "ret")) == 0) {
 		arg = strtok(NULL, " ");
 
 		if ((strcmp(cmdn, "cat") == 0) && arg == NULL)
@@ -46,10 +45,8 @@ void parse_cmd(int clientfd, char *cmd)
 		else if ((strcmp(cmdn, "ls") == 0) && arg == NULL)
 			ls_cmd(clientfd, NULL);
 
-		else if (strcmp(cmdn, "cat") == 0)
-		{
-			while (arg != NULL)
-			{
+		else if (strcmp(cmdn, "cat") == 0) {
+			while (arg != NULL) {
 				cat(clientfd, arg);
 				arg = strtok(NULL, " ");
 			}
@@ -63,9 +60,7 @@ void parse_cmd(int clientfd, char *cmd)
 			;
 	}
 
-	else
-	{ 
+	else { 
 		send(clientfd,"Not valid\n", strlen("Not valid\n"), 0);
-		
 	}
 }

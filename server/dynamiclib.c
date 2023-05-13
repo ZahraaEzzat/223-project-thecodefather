@@ -21,21 +21,19 @@ extern void parse_cmd(int clientfd, char *arg);
 int receive_cmd (int clientfd, char *cmd)
 {
 	// decrypt(cmd,cmd)
-	puts("receive_cmd");
-	int rc = recv(clientfd, cmd, sizeof(cmd), 0);
+	int rc = recv(clientfd, cmd, 100, 0);
+
 	//receive the command from the client
 	if (rc == 0)	{
 		printf ("Connection closed\n");
 		return rc;
 	}
-	puts("receive_cmd");
 	return rc;
 }
 
-/*void send_reply(int clientfd, char *cmd)
+
+void send_reply(int clientfd, char *cmd)
 {
-	puts("send_reply");
 	//encrypt(cmd,cmd);
 	parse_cmd(clientfd, cmd);
-	puts("send_reply");
-}*/
+}

@@ -14,7 +14,6 @@ extern char *dummy, *ext , *cmdn, *tmp;
 void _exitt(int clientfd)
 {
 	free(dummy);
-	free(ext);
 	free(cmdn);
 	free(tmp);
 	close(clientfd);
