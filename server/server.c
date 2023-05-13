@@ -79,11 +79,18 @@ void cat(int clientfd, char *filename)
 			if (strcmp(fentry->d_name, ".") == 0 || strcmp(fentry->d_name, "..") == 0) {
 				continue; // skip current and parent directories
 			}
+			char filepath[1024];
+			snprintf(filepath, 1024, "%s/%s", ".", fentry->d_name);
+			if (!S_ISREG(filestat.st_mode)) {
+				//skipping directories
+				continue;
+			}
 			fd = open(fentry->d_name, O_RDONLY);
 			if (fd < 0) {
 				continue;
 			}
 			if (fstat(fd, &filestat) < 0) {
+				close(fd);
 				continue;
 			}	
 
@@ -95,12 +102,14 @@ void cat(int clientfd, char *filename)
 					if (buf == NULL) {
 						perror("Error reallocating buffer\n");
 						closedir(dp);
+						close(fd);
 						return;
 					}
 				}
 			}
 			if (nread < 0) {
 				printf("Error reading file\n");
+				close(fd);
 				continue;
 			}
 			close(fd);
@@ -116,34 +125,41 @@ void cat(int clientfd, char *filename)
 		free(buf);
 		return;
 	}
-	// subcase 3: if wildcard character is used
-	dp = opendir(".");
-	if (dp == NULL) {
-		perror("Error opening directory\n");
-		return;
-	}
+
+
+	// subcase 3: cat file.* (a wildcard character is used)
+	//if the filename argument contains a wildcard character
 	if (strstr(filename, "*") != NULL) {
+		dp = opendir(".");
+		if (dp == NULL) {
+			perror("Error opening directory\n");
+			return;
+		}
+
 		char *tok = (char *) malloc(sizeof(char)*(strlen(filename)+1));
+		//copy filename to tok
 		snprintf(tok, strlen(filename)+1, "%s", filename);
 		dummy = tok;
 		tok = strtok(tok, "*");
 		while (tok != NULL) {
-			while ((fentry = readdir(dp)) != NULL) {
-				if(strstr(fentry->d_name, tok) != NULL) {
-					fd = open(fentry->d_name, O_RDONLY); 
+			while ((fentry = readdir(dp)) != NULL) { //iterate over each file in .
+				if(strstr(fentry->d_name, tok) != NULL) { //if filename contains the token
+					fd = open(fentry->d_name, O_RDONLY); //open it
 					if (fd < 0) {
 						perror("Error opening file\n");
 						free(tok);
 						closedir(dp);
 						return;
 					}
-       	                		if (fstat(fd, &filestat) < 0) {
+       	                		if (fstat(fd, &filestat) < 0) { //get stats abt the file
                        	        		printf("Error fstat\n");
                        	        		free(tok);
                        	        		close(fd);
                        	        		closedir(dp);
                                			return;
 					}
+
+					//map the file into memory
 			                char *file_buffer = mmap(NULL, filestat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 					if (file_buffer == MAP_FAILED) {
 						printf("Error mapping\n");
@@ -151,6 +167,7 @@ void cat(int clientfd, char *filename)
                        	        		closedir(dp);
                                 		return;
                         		}
+
                         		buf = realloc(buf, output_buffer_size + filestat.st_size);
 					if (buf == NULL) {
 						perror("Error allocating memory\n");
@@ -158,8 +175,12 @@ void cat(int clientfd, char *filename)
                        	        		closedir(dp);
 						return;
 					}
+
+					//copy the file content to the output buffer
 					memcpy(buf + output_buffer_size, file_buffer, filestat.st_size);
 					output_buffer_size += filestat.st_size;
+
+					//unmap the file from memory
 					if (munmap(file_buffer, filestat.st_size) < 0) {
 						printf("Error munmap\n");
 						close(fd);
@@ -174,18 +195,19 @@ void cat(int clientfd, char *filename)
 		}
 		free(tok);
 		free(dummy);
+		closedir(dp);
 	}
-	closedir(dp);
 	
-	if (flag) {
+	if(flag) {
 		//send the buffer to the client
 		if (send(clientfd, buf, output_buffer_size, 0) < 0) {
 			perror("Error sending data\n");
 			return;
 		}
+		free(buf);
+		return;
 	}
-	free(buf);
-	return;
+
 
 	// subase 4: cat filename(s)
 	dp = opendir(".");
@@ -194,15 +216,15 @@ void cat(int clientfd, char *filename)
 		return;
 	}
 	char *buffer;
-	while ((fentry = readdir(dp)) != NULL) {
+	while ((fentry = readdir(dp)) != NULL) { //iterate over files
 		if (strcmp(fentry->d_name, filename) == 0) {
 			flag = 1;
-			fd = open(fentry->d_name, O_RDONLY);
+			fd = open(fentry->d_name, O_RDONLY); //open the file
 			if (fd < 0) {
 				perror("Error opening file\n");
 				return;
 			}
-			if (fstat(fd, &filestat) < 0) {
+			if (fstat(fd, &filestat) < 0) { //get file's stats
 				printf("Error fstat\n");
 				return;
 			}
@@ -220,8 +242,9 @@ void cat(int clientfd, char *filename)
 	}
 	if (flag == 0) {
 		char file[50];
-		sprintf(file, "cat: '%s': no such file or directory\n", filename);
+		sprintf(file, "cat: '%s': no such file or directory\n ", filename);
 		send(clientfd, file, strlen(file), MSG_WAITALL);
+		closedir(dp);
 		return;
 	}
 	send(clientfd, buffer, filestat.st_size, MSG_WAITALL);
