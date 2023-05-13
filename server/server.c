@@ -29,14 +29,12 @@
 int receive_cmd (int clientfd, char *cmd)
 {
 	// decrypt(cmd,cmd)
-	puts("receive_cmd");
 	int rc = recv(clientfd, cmd, 100, 0);
 	//receive the command from the client
 	if (rc == 0)	{
 		printf ("Connection closed\n");
 		return rc;
 	}
-	puts("receive_cmd");
 	return rc;
 }
 
@@ -52,11 +50,12 @@ void cat(int clientfd, char *filename)
 	// Case 1: current directory
 	// subcase 1: cat NULL (no file name passed)
 	if(filename == NULL) {
-		send(clientfd, "No file name was passed\n ", strlen("No file name was passed\n "), 0);
+		send(clientfd, "No file name was passed\n ", strlen("No file name was passed\n"), 0);
 		return;
 	}
 
 	// subcase 2: cat * (view the contents of all files in the current directory)
+	size_t buf_size = 4086; // initial buffer size
 	if (strcmp(filename, "*") == 0)	{
 		dp = opendir(".");
 		if (!dp) {
@@ -65,7 +64,6 @@ void cat(int clientfd, char *filename)
 		}
 
 		// read files in directory and put them in buffer
-		size_t buf_size = 4086; // initial buffer size
 		buf = malloc(buf_size);
 		if (buf == NULL) {
 			perror("Error allocating buffer\n");
@@ -144,51 +142,55 @@ void cat(int clientfd, char *filename)
 		while (tok != NULL) {
 			while ((fentry = readdir(dp)) != NULL) { //iterate over each file in .
 				if(strstr(fentry->d_name, tok) != NULL) { //if filename contains the token
-					fd = open(fentry->d_name, O_RDONLY); //open it
-					if (fd < 0) {
-						perror("Error opening file\n");
-						free(tok);
-						closedir(dp);
-						return;
-					}
-       	                		if (fstat(fd, &filestat) < 0) { //get stats abt the file
-                       	        		printf("Error fstat\n");
-                       	        		free(tok);
-                       	        		close(fd);
-                       	        		closedir(dp);
-                               			return;
-					}
+					char *dot = strrchr(fentry->d_name, '.'); //get the extension
+					if(strcmp(dot, ".o") != 0) {
+						fd = open(fentry->d_name, O_RDONLY); //open it
+						if (fd < 0) {
+							perror("Error opening file\n");
+							free(tok);
+							closedir(dp);
+							return;
+						}
+       	                			if (fstat(fd, &filestat) < 0) { //get stats abt the file
+                       	        			printf("Error fstat\n");
+                       	        			free(tok);
+                       	        			close(fd);
+                       	        			closedir(dp);
+                               				return;
+						}
 
-					//map the file into memory
-			                char *file_buffer = mmap(NULL, filestat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-					if (file_buffer == MAP_FAILED) {
-						printf("Error mapping\n");
-						close(fd);
-                       	        		closedir(dp);
-                                		return;
-                        		}
+						//map the file into memory
+			                	char *file_buffer = mmap(NULL, filestat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+						if (file_buffer == MAP_FAILED) {
+							printf("Error mapping\n");
+							close(fd);
+                       	        			closedir(dp);
+                                			return;
+                        			}
 
-                        		buf = realloc(buf, output_buffer_size + filestat.st_size);
-					if (buf == NULL) {
-						perror("Error allocating memory\n");
-						close(fd);
-                       	        		closedir(dp);
-						return;
+						buf_size *= 2; //doubl buffer size
+	                        		buf = realloc(buf, output_buffer_size + filestat.st_size);
+						if (buf == NULL) {
+							perror("Error allocating memory\n");
+							close(fd);
+	                       	        		closedir(dp);
+							return;
+						}
+
+						//copy the file content to the output buffer
+						memcpy(buf + output_buffer_size, file_buffer, filestat.st_size);
+						output_buffer_size += filestat.st_size;
+
+						//unmap the file from memory
+						if (munmap(file_buffer, filestat.st_size) < 0) {
+							printf("Error munmap\n");
+							close(fd);
+	                       	        		closedir(dp);
+							return;
+						}
+	                			close(fd);
+	                			flag = 1;
 					}
-
-					//copy the file content to the output buffer
-					memcpy(buf + output_buffer_size, file_buffer, filestat.st_size);
-					output_buffer_size += filestat.st_size;
-
-					//unmap the file from memory
-					if (munmap(file_buffer, filestat.st_size) < 0) {
-						printf("Error munmap\n");
-						close(fd);
-                       	        		closedir(dp);
-						return;
-					}
-                			close(fd);
-                			flag = 1;
 				}
 			}
 			tok = strtok (NULL, "*");
@@ -242,7 +244,7 @@ void cat(int clientfd, char *filename)
 	}
 	if (flag == 0) {
 		char file[50];
-		sprintf(file, "cat: '%s': no such file or directory\n ", filename);
+		sprintf(file, "cat: '%s': no such file or directory\n", filename);
 		send(clientfd, file, strlen(file), MSG_WAITALL);
 		closedir(dp);
 		return;
@@ -313,10 +315,8 @@ void parse_cmd(int clientfd, char *cmd)
 
 void send_reply(int clientfd, char *cmd)
 {
-	puts("send_reply");
 	//encrypt(cmd,cmd);
 	parse_cmd(clientfd, cmd);
-	puts("send_reply");
 }
 
 int main(int argc, char **argv)
