@@ -12,13 +12,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+
+
 extern void _exitt(int);
 extern void help(int);
 extern void ls_cmd(int clientfd, char *dir_name);
 extern void cat(int clientfd, char *filename);
-//extern void retrieve(char *file_name);
-//extern int clientfd;
-//extern void send_reply (int clientfd, char *cmd);
+extern void ret(int clientfd, char *file_name);
 char *cmdn;
 
 void parse_cmd(int clientfd, char *cmd)
@@ -56,8 +56,7 @@ void parse_cmd(int clientfd, char *cmd)
 			ls_cmd(clientfd, arg);
 
 		else if (strcmp(cmdn, "ret") == 0)
-			//retrieve(arg)
-			;
+			ret(clientfd, arg);
 	}
 
 	else { 
