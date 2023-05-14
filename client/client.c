@@ -5,43 +5,73 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 
-#define MAXLINE 4096
 
-/*extern int send_cmd(int fd, char *cmd);
-extern void receive_reply(int fd, char* buf);*/
-
-int send_cmd(int fd, char *cmd) 
+extern int send_cmd(int fd, char *cmd);
+//extern void receive_reply(int fd, char* buf);
+#define MAXLINE 6144
+void receive_reply(int clientfd, char* buf)
 {
-	int len = strlen(cmd);
-//	encrypt(cmd, cmd);
-	int rc = send(fd, cmd, len, 0);
-	if (rc == -1 || rc == 0) {
-		perror("send");
-		return rc;
-	}
-	return rc;
-}
-void receive_reply(int fd, char* buf)
-{
-	int rc = recv(fd, buf, MAXLINE, 0);
-	if (rc > 0) {
-		//decrypt(buf, buf);
-
-		//write the received reply from the server
-		if(write(1, buf, rc) < 0) {
-			printf("%s", buf);
-			exit(1);
+	int rc;
+	if (strstr(buf, "ret") != NULL) {
+		char* filename = NULL;
+		char* command = strdup(buf); //a copy of buf
+		char* token = strtok(command, " ");
+		
+		if (strcmp(token, "ret") == 0) {
+			filename = strtok(NULL, " ");
 		}
-		if(rc == 0) {
+
+		//receive the size of the file
+		int rsize = recv(clientfd, buf, MAXLINE, 0);
+
+		int fd = open(filename, O_RDWR | O_CREAT, 0644);
+		if (fd < 0) {
+			printf("ERROR open");
+			return;
+		}
+
+		int total_bytes_received = 0;
+		while (total_bytes_received < rsize) {
+			rc = recv(clientfd, buf, MAXLINE, 0);
+			if (rc < 0) {
+				close(fd);
+				return;
+			} else if(rc == 0) {
+				close(fd);
+				return;
+			} else {
+				total_bytes_received += rc;
+				if(write(fd, buf, rc) < 0) {
+					printf("%s", buf);
+					exit(1);
+				}
+			}
+		}
+		free(command);
+		close(fd);
+		printf("File '%s' downloaded successfully\n", filename);
+		return;
+	}
+
+	while (1) {
+		rc = recv(clientfd, buf, MAXLINE, 0);
+		if (rc > 0) {
+			//decrypt(buf, buf);
+
+			//write the received reply from the server
+			if(write(1, buf, rc) < 0) {
+				printf("%s", buf);
+				exit(1);
+			}
+		} else if(rc == 0) {
 			printf("end\n");
 			return ;
+		} else {
+			printf("error in recv");
+			exit(1);
 		}
-	}
-	
-	if (rc == -1) {
-		printf("error in recv");
-		exit(1);
 	}
 }
 
@@ -76,7 +106,7 @@ int main(int argc, char **argv)
 
 	printf("Connected to server\n");
 
-	char buf[MAXLINE];
+	char buf[4096];
 	int len;
 	while (1) {
 		memset(buf,0,sizeof(buf));

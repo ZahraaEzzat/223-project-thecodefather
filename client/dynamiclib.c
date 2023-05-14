@@ -8,8 +8,9 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-#define MAXLINE 1024
+#define MAXLINE 6144
 
 //extern char* decrypt(char *encryption, char* original);
 //extern char* encrypt (char* original, char* encryption);
@@ -19,7 +20,6 @@
 
 int send_cmd(int fd, char *cmd) 
 {
-printf("send_cmd\n");
 	int len = strlen(cmd);
 //	encrypt(cmd, cmd);
 	int rc = send(fd, cmd, len, 0);
@@ -27,33 +27,62 @@ printf("send_cmd\n");
 		perror("send");
 		return rc;
 	}
-	printf("send_cmd\n");
 	return rc;
 }
 
 
-void receive_reply(int fd, char* buf)
+/*void receive_reply(int clientfd, char* buf)
 {
-printf("receive_reply\n");
-	int rc = recv(fd, buf, MAXLINE, 0);
+	int rc;
+	if (strstr(buf, "ret") != NULL) {
+		//receive the size of the file
+		int rsize = recv(clientfd, buf, MAXLINE, 0);
 
-	if (rc > 0) {
-		//decrypt(buf, buf);
-
-		//write the received reply from the server
-		if(write(1, buf, rc) < 0) {
-			printf("%s", buf);
-			exit(1);
+		char* filename = buf + 4; //skip over 'ret '
+		int fd = open(filename, O_RDWR, 0);
+		if (fd < 0) {
+			printf("ERROR open");
+			return;
 		}
-		if(rc == 0) {
+
+		int total_bytes_received = 0;
+		while (total_bytes_received < rsize) {
+			rc = recv(clientfd, buf, MAXLINE, 0);
+			if (rc < 0) {
+				close(fd);
+				return;
+			} else if(rc == 0) {
+				close(fd);
+				return;
+			} else {
+				total_bytes_received += rc;
+				if(write(fd, buf, rc) < 0) {
+					printf("%s", buf);
+					exit(1);
+				}
+			}
+		}
+		close(fd);
+		printf("File '%s' downloaded successfully\n", filename);
+		return;
+	}
+
+	while (1) {
+		rc = recv(clientfd, buf, MAXLINE, 0);
+		if (rc > 0) {
+			//decrypt(buf, buf);
+
+			//write the received reply from the server
+			if(write(1, buf, rc) < 0) {
+				printf("%s", buf);
+				exit(1);
+			}
+		} else if(rc == 0) {
 			printf("end\n");
 			return ;
+		} else {
+			printf("error in recv");
+			exit(1);
 		}
 	}
-	
-	if (rc == -1) {
-		printf("error in recv");
-		exit(1);
-	}
-printf("receive_reply\n");
-}
+}*/
