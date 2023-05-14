@@ -234,4 +234,4 @@ void cat(int clientfd, char *filename)
 	free(buffer);
 	closedir(dp);
 	return;
-}	
+}

@@ -18,7 +18,7 @@ extern void parse_cmd(int clientfd, char *arg);
 
 //----------------------------------------FUNCTION DEFINITIONS--------------------------------------
 
-/*int receive_cmd (int clientfd, char *cmd)
+int receive_cmd (int clientfd, char *cmd)
 {
 	// decrypt(cmd,cmd)
 	int rc = recv(clientfd, cmd, 100, 0);
@@ -36,4 +36,4 @@ void send_reply(int clientfd, char *cmd)
 {
 	//encrypt(cmd,cmd);
 	parse_cmd(clientfd, cmd);
-}*/
+}
