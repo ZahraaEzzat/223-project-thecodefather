@@ -8,10 +8,21 @@
 #include <fcntl.h>
 
 
-extern int send_cmd(int fd, char *cmd);
+//extern int send_cmd(int fd, char *cmd);
 //extern void receive_reply(int fd, char* buf);
-#define MAXLINE 6144
-void receive_reply(int clientfd, char* buf)
+#define MAXLINE 12288
+int send_cmd(int fd, char *cmd) 
+{
+	int len = strlen(cmd);
+//	encrypt(cmd, cmd);
+	int rc = send(fd, cmd, len, 0);
+	if (rc == -1 || rc == 0) {
+		perror("send");
+		return rc;
+	}
+	return rc;
+}
+void receive_reply(int sockfd, char* buf)
 {
 	int rc;
 	if (strstr(buf, "ret") != NULL) {
@@ -24,8 +35,13 @@ void receive_reply(int clientfd, char* buf)
 		}
 
 		//receive the size of the file
-		int rsize = recv(clientfd, buf, MAXLINE, 0);
-
+		int file_size;
+		int rsize = recv(sockfd, &file_size, MAXLINE, 0);
+		if (rsize <= 0) {
+			return;
+		}
+		rsize = file_size;
+			
 		int fd = open(filename, O_RDWR | O_CREAT, 0644);
 		if (fd < 0) {
 			printf("ERROR open");
@@ -34,11 +50,8 @@ void receive_reply(int clientfd, char* buf)
 
 		int total_bytes_received = 0;
 		while (total_bytes_received < rsize) {
-			rc = recv(clientfd, buf, MAXLINE, 0);
-			if (rc < 0) {
-				close(fd);
-				return;
-			} else if(rc == 0) {
+			rc = recv(sockfd, buf, MAXLINE, 0);
+			if (rc <= 0) {
 				close(fd);
 				return;
 			} else {
@@ -49,21 +62,30 @@ void receive_reply(int clientfd, char* buf)
 				}
 			}
 		}
+		printf("File '%s' downloaded successfully\n", filename);
 		free(command);
 		close(fd);
-		printf("File '%s' downloaded successfully\n", filename);
 		return;
 	}
 
 	while (1) {
-		rc = recv(clientfd, buf, MAXLINE, 0);
+		rc = recv(sockfd, buf, MAXLINE, 0);
 		if (rc > 0) {
 			//decrypt(buf, buf);
 
 			//write the received reply from the server
-			if(write(1, buf, rc) < 0) {
-				printf("%s", buf);
-				exit(1);
+			int written = 0;
+			while (written < rc) {
+				int n = write(1, buf + written, rc - written);
+				if (n < 0) {
+					printf("Error in write\n");
+					exit(1);
+				}
+				written += n;
+			}
+			if (written == rc) {
+				printf("Received and written %d bytes\n", written);
+				break; // stop the loop if written bytes == received bytes
 			}
 		} else if(rc == 0) {
 			printf("end\n");

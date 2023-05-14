@@ -18,7 +18,7 @@
 
 //----------------------------------------FUNCTION DEFINITIONS--------------------------------------
 
-int send_cmd(int fd, char *cmd) 
+/*int send_cmd(int fd, char *cmd) 
 {
 	int len = strlen(cmd);
 //	encrypt(cmd, cmd);
@@ -31,7 +31,7 @@ int send_cmd(int fd, char *cmd)
 }
 
 
-/*void receive_reply(int clientfd, char* buf)
+void receive_reply(int clientfd, char* buf)
 {
 	int rc;
 	if (strstr(buf, "ret") != NULL) {
