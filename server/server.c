@@ -283,6 +283,7 @@ void ls_cmd(int clientfd, char *arg)
 			}
 			closedir(dir);
 			send(clientfd, buffer, strlen(buffer), 0);
+			return;
 		} else {
 			sprintf(buffer, "Error opening directory: %s\n", strerror(errno));
 			send(clientfd, buffer, strlen(buffer), 0);
